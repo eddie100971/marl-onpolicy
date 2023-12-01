@@ -19,5 +19,5 @@ CUDA_VISIBLE_DEVICES=0 python ../train/train_football.py \
 --env_name ${env} --scenario_name ${scenario} --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
 --num_agents ${num_agents} --num_env_steps ${num_env_steps} --episode_length ${episode_length} \
 --representation "simple115v2" --rewards "scoring,checkpoints" --n_rollout_threads 1 --ppo_epoch 15 --num_mini_batch 2 \
---save_interval 1 --log_interval 200000 --use_eval --eval_interval 1 --n_eval_rollout_threads 1 --eval_episodes 100 \
+--save_interval 1 --log_interval 200000 --use_eval --eval_interval 5 --n_eval_rollout_threads 1 --eval_episodes 100 --wandb_name "xxx" \
 

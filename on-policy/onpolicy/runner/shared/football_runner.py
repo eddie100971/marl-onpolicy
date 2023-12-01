@@ -8,7 +8,8 @@ import numpy as np
 import torch
 import wandb
 import json
-
+from multiprocessing import Process, current_process
+from multiprocessing.pool import Pool
 from onpolicy.utils.util import update_linear_schedule
 from onpolicy.runner.shared.base_runner import Runner
 from onpolicy.algorithms.r_mappo.r_mappo import R_MAPPO
@@ -20,7 +21,7 @@ class FootballRunner(Runner):
     def __init__(self, config):
         super(FootballRunner, self).__init__(config)
         self.env_infos = defaultdict(list)
-       
+    
     def run(self):
         self.warmup()   
 
@@ -51,9 +52,12 @@ class FootballRunner(Runner):
             # compute return and update network
             self.compute()
             train_infos = self.train() # dictionary containes all information for the episode
-            with open("C:\dev\on-policy\onpolicy\data\model1.json", "a") as outfile:
-                json.dump({k:(v.item() if torch.is_tensor(v) else v) for k, v in train_infos.items()}, outfile)
-                outfile.write("\n")
+            
+            '''
+            for i in range(self.n_rollout_threads):
+                ps = Process(target=self.save_data, name=f"{i}", args={"name":f"{i}"})
+                ps.start()
+            '''
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
             
@@ -84,8 +88,8 @@ class FootballRunner(Runner):
             if episode % self.eval_interval == 0 and self.use_eval:
                 self.eval(total_num_steps)
         
-        torch.save(self.trainer.policy.actor.state_dict("C:\dev\on-policy\onpolicy\data\MAPPO_Actor.pth"), )
-        torch.save(self.trainer.policy.critic.state_dict("C:\dev\on-policy\onpolicy\data\MAPPO_Critic.pth"), )
+        torch.save(self.trainer.policy.actor.state_dict(), "C:\dev\on-policy\onpolicy\data\MAPPO_Actor.pth")
+        torch.save(self.trainer.policy.critic.state_dict(), "C:\dev\on-policy\onpolicy\data\MAPPO_Critic.pth")
     
 
     def warmup(self):
