@@ -16,6 +16,8 @@ class R_MAPPO():
                  args,
                  policy,
                  device=torch.device("cpu")):
+        self.use_sd = args.use_sd
+        self.sd_delta = args.sd_delta
 
         self.device = device
         self.tpdv = dict(dtype=torch.float32, device=device)
@@ -123,18 +125,42 @@ class R_MAPPO():
                                                                               active_masks_batch)
         # actor update
         imp_weights = torch.exp(action_log_probs - old_action_log_probs_batch)
+ 
+        if self.use_sd:
+            with torch.no_grad():
+                sd_indicator = torch.equal(torch.lt(torch.abs(imp_weights - 1).float(), self.sd_delta), 1.0)
+                condition = torch.equal(torch.mean(sd_indicator), 0).float()
+                sd_indicator = condition * torch.ones(sd_indicator.size) + (1-condition) * sd_indicator
+        else:
+            sd_indicator = 1  
 
         surr1 = imp_weights * adv_targ
         surr2 = torch.clamp(imp_weights, 1.0 - self.clip_param, 1.0 + self.clip_param) * adv_targ
-
+        
         if self._use_policy_active_masks:
             policy_action_loss = (-torch.sum(torch.min(surr1, surr2),
                                              dim=-1,
                                              keepdim=True) * active_masks_batch).sum() / active_masks_batch.sum()
+        elif self.use_sd:
+            policy_action_loss = (-torch.sum(torch.min(surr1, surr2),
+                                             dim=-1,
+                                             keepdim=True) * sd_indicator).sum() / (sd_indicator.sum() + 1e-8)
         else:
             policy_action_loss = -torch.sum(torch.min(surr1, surr2), dim=-1, keepdim=True).mean()
 
         policy_loss = policy_action_loss
+        
+        ##### COMPUTE VARIANCE
+        min_surr = torch.min(surr1, surr2) # should this be max? i'm not 100% sure
+        if self.use_sd:    
+            mean = torch.sum(min_surr * sd_indicator) / (torch.sum(sd_indicator) + 1e-8)
+            std = torch.sum((min_surr * sd_indicator) * (min_surr * sd_indicator)) / (
+                torch.sum(sd_indicator) + 1e-8) - mean * mean
+        else:
+            mean = torch.mean(min_surr)
+            std = torch.mean(min_surr * min_surr) - mean * mean
+        #####
+        
 
         self.policy.actor_optimizer.zero_grad()
 
@@ -162,7 +188,7 @@ class R_MAPPO():
 
         self.policy.critic_optimizer.step()
 
-        return value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, imp_weights
+        return value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, imp_weights, std * std
 
     def train(self, buffer, update_actor=True):
         """
@@ -191,6 +217,7 @@ class R_MAPPO():
         train_info['actor_grad_norm'] = 0
         train_info['critic_grad_norm'] = 0
         train_info['ratio'] = 0
+        train_info['total_variance'] = 0
 
         for _ in range(self.ppo_epoch):
             if self._use_recurrent_policy:
@@ -202,7 +229,7 @@ class R_MAPPO():
 
             for sample in data_generator:
 
-                value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, imp_weights \
+                value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, imp_weights, variance \
                     = self.ppo_update(sample, update_actor)
 
                 train_info['value_loss'] += value_loss.item()
@@ -211,6 +238,8 @@ class R_MAPPO():
                 train_info['actor_grad_norm'] += actor_grad_norm
                 train_info['critic_grad_norm'] += critic_grad_norm
                 train_info['ratio'] += imp_weights.mean()
+                train_info['variance'] += variance
+
 
         num_updates = self.ppo_epoch * self.num_mini_batch
 
