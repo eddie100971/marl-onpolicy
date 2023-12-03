@@ -52,7 +52,7 @@ class R_MAPPO():
         else:
             self.value_normalizer = None
 
-    def cal_value_loss(self, values, value_preds_batch, return_batch, active_masks_batch):
+    def cal_value_loss(self, values, value_preds_batch, return_batch, active_masks_batch, sd_indicator):
         """
         Calculate value function loss.
         :param values: (torch.Tensor) value function predictions.
@@ -86,6 +86,8 @@ class R_MAPPO():
 
         if self._use_value_active_masks:
             value_loss = (value_loss * active_masks_batch).sum() / active_masks_batch.sum()
+        elif self.use_sd:
+            value_loss = (value_loss * sd_indicator).sum() / (torch.sum(sd_indicator) + 1e-8) # sample droupout for value function
         else:
             value_loss = value_loss.mean()
 
@@ -125,12 +127,14 @@ class R_MAPPO():
                                                                               active_masks_batch)
         # actor update
         imp_weights = torch.exp(action_log_probs - old_action_log_probs_batch)
- 
         if self.use_sd:
             with torch.no_grad():
-                sd_indicator = torch.equal(torch.lt(torch.abs(imp_weights - 1).float(), self.sd_delta), 1.0)
-                condition = torch.equal(torch.mean(sd_indicator), 0).float()
-                sd_indicator = condition * torch.ones(sd_indicator.size) + (1-condition) * sd_indicator
+                sd_indicator = torch.lt(torch.abs(imp_weights - 1), self.sd_delta).float()
+                if torch.all(sd_indicator==0.0):
+                    condition = 1
+                else:
+                    condition = 0
+                sd_indicator = condition * torch.ones(sd_indicator.size(), device=torch.device('cuda')) + (1-condition) * sd_indicator
         else:
             sd_indicator = 1  
 
@@ -153,8 +157,8 @@ class R_MAPPO():
         ##### COMPUTE VARIANCE
         min_surr = torch.min(surr1, surr2) # should this be max? i'm not 100% sure
         if self.use_sd:    
-            mean = torch.sum(min_surr * sd_indicator) / (torch.sum(sd_indicator) + 1e-8)
-            std = torch.sum((min_surr * sd_indicator) * (min_surr * sd_indicator)) / (
+            mean = -torch.sum(min_surr * sd_indicator) / (torch.sum(sd_indicator) + 1e-8)
+            std = -torch.sum((min_surr * sd_indicator) * (min_surr * sd_indicator)) / (
                 torch.sum(sd_indicator) + 1e-8) - mean * mean
         else:
             mean = torch.mean(min_surr)
@@ -175,7 +179,7 @@ class R_MAPPO():
         self.policy.actor_optimizer.step()
 
         # critic update
-        value_loss = self.cal_value_loss(values, value_preds_batch, return_batch, active_masks_batch)
+        value_loss = self.cal_value_loss(values, value_preds_batch, return_batch, active_masks_batch, sd_indicator)
 
         self.policy.critic_optimizer.zero_grad()
 
@@ -217,7 +221,7 @@ class R_MAPPO():
         train_info['actor_grad_norm'] = 0
         train_info['critic_grad_norm'] = 0
         train_info['ratio'] = 0
-        train_info['total_variance'] = 0
+        train_info['variance'] = 0
 
         for _ in range(self.ppo_epoch):
             if self._use_recurrent_policy:
