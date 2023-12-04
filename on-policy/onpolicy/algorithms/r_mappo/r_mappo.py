@@ -134,7 +134,7 @@ class R_MAPPO():
                     condition = 1
                 else:
                     condition = 0
-                sd_indicator = condition * torch.ones(sd_indicator.size(), device=torch.device('cuda')) + (1-condition) * sd_indicator
+                sd_indicator = condition * torch.ones(sd_indicator.size(), device=torch.device('cpu')) + (1-condition) * sd_indicator
         else:
             sd_indicator = 1  
 

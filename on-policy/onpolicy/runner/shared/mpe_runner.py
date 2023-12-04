@@ -77,8 +77,8 @@ class MPERunner(Runner):
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:
                 self.eval(total_num_steps)
-        torch.save(self.trainer.policy.actor.state_dict(), "C:\dev\on-policy\onpolicy\data\Actor_MPE_" + self.all_args.save_dir + ".pth")
-        torch.save(self.trainer.policy.critic.state_dict(), "C:\dev\on-policy\onpolicy\data\Critic_MPE_" + self.all_args.save_dir +".pth")
+        torch.save(self.trainer.policy.actor.state_dict(), "C:\dev\marl-onpolicy\on-policy\onpolicy\data\Actor_MPE_" + self.all_args.save_dir + ".pth")
+        torch.save(self.trainer.policy.critic.state_dict(), "C:\dev\marl-onpolicy\on-policy\onpolicy\data\Critic_MPE_" + self.all_args.save_dir +".pth")
 
     def warmup(self):
         # reset env
