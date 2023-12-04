@@ -59,6 +59,8 @@ def parse_args(args, parser):
                         help="use sample dropout")
     parser.add_argument("--sd_delta", type=float, default=0.5,
                         help="hyperparameter for sample dropout")
+    parser.add_argument("--save_dir", type=str, default="data.pt", 
+                        help="save data dir")
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
