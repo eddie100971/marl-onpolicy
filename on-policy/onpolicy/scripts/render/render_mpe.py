@@ -37,6 +37,10 @@ def parse_args(args, parser):
     parser.add_argument("--num_landmarks", type=int, default=3)
     parser.add_argument('--num_agents', type=int,
                         default=2, help="number of players")
+    parser.add_argument("--use_sd", type=bool, default=False, 
+                        help="use sample dropout")
+    parser.add_argument("--sd_delta", type=float, default=0.5,
+                        help="hyperparameter for sample dropout")
 
     all_args = parser.parse_known_args(args)[0]
 

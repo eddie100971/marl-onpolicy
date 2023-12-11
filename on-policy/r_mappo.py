@@ -21,6 +21,9 @@ class R_MAPPO():
         self.tpdv = dict(dtype=torch.float32, device=device)
         self.policy = policy
 
+        self.policy.actor.load_state_dict(torch.load("C:\dev\marl-onpolicy\on-policy\onpolicy\data\Actor_MPE_noMask_MAPPO_MPE.pth"), strict=False)
+        self.policy.critic.load_state_dict(torch.load("C:\dev\marl-onpolicy\on-policy\onpolicy\data\Critic_MPE_noMask_MAPPO_MPE.pth"), strict=False)
+
         self.clip_param = args.clip_param
         self.ppo_epoch = args.ppo_epoch
         self.num_mini_batch = args.num_mini_batch

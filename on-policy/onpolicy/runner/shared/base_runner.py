@@ -151,10 +151,10 @@ class Runner(object):
         if self.algorithm_name == "mat" or self.algorithm_name == "mat_dec":
             self.policy.restore(model_dir)
         else:
-            policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor.pt')
+            policy_actor_state_dict = torch.load("C:\dev\marl-onpolicy\on-policy\onpolicy\data\Actor_MPE_SD_MAPPO_MPE3.pth")
             self.policy.actor.load_state_dict(policy_actor_state_dict)
             if not self.all_args.use_render:
-                policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic.pt')
+                policy_critic_state_dict = torch.load("C:\dev\marl-onpolicy\on-policy\onpolicy\data\Critic_MPE_SD_MAPPO_MPE3.pth")
                 self.policy.critic.load_state_dict(policy_critic_state_dict)
 
     def log_train(self, train_infos, total_num_steps):
